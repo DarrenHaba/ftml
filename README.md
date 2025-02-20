@@ -48,6 +48,44 @@ The parser successfully handles basic FTML syntax, including:
 - Additional languages based on community needs
 - Add additional types: data
 
+## Quick Start
+
+First, install FTML via pip:
+
+```bash
+pip install ftml
+```
+
+Then, try out this simple Python script that demonstrates FTML’s core functionality:
+
+```python
+import ftml
+
+# Define FTML data as a string
+ftml_data = """
+user = {
+    name = "Alice"
+    age = 28
+    skills = ["Python", "Data Analysis"]
+}
+"""
+
+# Load the FTML data into a Python dictionary
+data = ftml.load(ftml_data)
+
+# Modify the data: increment age and add a new skill
+data["user"]["age"] += 1
+data["user"]["skills"].append("Machine Learning")
+
+# Convert the Python dictionary back to FTML format
+ftml_output = ftml.dump(data)
+
+print("Modified FTML Data:")
+print(ftml_output)
+```
+
+This quick start demonstrates how to load FTML data, modify it programmatically, and dump it back into FTML format.
+
 ## Overview
 
 FTML (FlexTag Markup Language) is designed to serve two primary purposes:
@@ -815,70 +853,84 @@ user = {
 }
 """
 
-# Load FTML data into a Python dictionary
+# Load FTML data into a Python dictionary-like object (FTMLData)
 data = ftml.load(ftml_data, schema=ftml_schema)
 
-# Modify the data
+# Modify the data as you would a normal dict
 data["user"]["age"] += 1
 data["user"]["skills"].append("Machine Learning")
 
-# Convert Python dictionary back to FTML
+# For advanced usage, you can access the full internal objects:
+print("Full FTMLDocument instance:")
+print(data.ftml_document)  # The complete parsed document with all metadata
+
+print("Full FTMLSchema instance:")
+print(data.ftml_schema)    # The normalized schema definition
+
+# Convert the Python dictionary back to FTML format
 ftml_output = ftml.dump(data)
 print("\nFTML Output:\n", ftml_output)
 
 # Save FTML data to a file
 with open("output.ftml", "w") as file:
-  ftml.dump(data, file)
+    ftml.dump(data, file)
 ```
 
 ### API Functions
 
-- `ftml.load(data: str, schema: Optional[str] = None) -> dict` Parses FTML data into a Python dictionary. If a schema is provided, validates the data against it.
+- `ftml.load(data: str, schema: Optional[str] = None) -> FTMLData`  
+  Parses FTML data into an FTMLData instance (a dict subclass). If a schema is provided, it validates the data against it. Users can work with the simplified data directly and also access the full internal objects via the `ftml_document` and `ftml_schema` properties.
 
-- `ftml.dump(data: dict, file: Optional[TextIO] = None) -> str` Converts a Python dictionary to FTML format. If a file is provided, writes the output to the file.
+- `ftml.dump(data: dict, file: Optional[TextIO] = None) -> str`  
+  Converts a Python dictionary (or FTMLData) back to FTML format. If a file is provided, the output is written to that file.
 
-- `ftml.validate(data: dict, schema: str) -> bool` Validates a Python dictionary against an FTML schema. Raises `ValidationError` if the data is invalid.
+- `ftml.validate(data: dict, schema: str) -> bool`  
+  Validates a Python dictionary against an FTML schema. Raises a `ValidationError` if the data is invalid.
 
-- `ftml.load_file(path: str, schema: Optional[str] = None) -> dict` Loads FTML data from a file and parses it into a Python dictionary.
+- `ftml.load_file(path: str, schema: Optional[str] = None) -> dict`  
+  Loads FTML data from a file and parses it into an FTMLData instance.
 
-- `ftml.dump_file(data: dict, path: str)` Converts a Python dictionary to FTML format and writes it to a file.
+- `ftml.dump_file(data: dict, path: str)`  
+  Converts a Python dictionary to FTML format and writes it to a file.
 
 ### Internal Classes
 
 The `ftml` module uses the following internal classes for parsing and validation:
 
-`FTMLSchema`
+- **`FTMLSchema`**
+  - `load(schema: str) -> FTMLSchema`: Parses an FTML schema string and returns an `FTMLSchema` object.
+  - `validate(data: dict) -> bool`: Validates a Python dictionary against the schema. Raises `ValidationError` if the data is invalid.
 
-- `load(schema: str) -> FTMLSchema` Parses an FTML schema string and returns an `FTMLSchema` object.
+- **`FTMLDocument`**
+  - `load(data: str, schema: Dict = None) -> FTMLDocument`: Parses an FTML data string and returns an `FTMLDocument` object. If a schema is provided, it validates the data against it.
+  - `from_dict(data: dict) -> FTMLDocument`: Creates an `FTMLDocument` object from a Python dictionary.
+  - `to_dict() -> dict`: Converts the `FTMLDocument` object to a Python dictionary.
+  - `to_ftml() -> str`: Converts the `FTMLDocument` object back to an FTML string.
 
-- `validate(data: dict) -> bool` Validates a Python dictionary against the schema. Raises `ValidationError` if the data is invalid.
-
-`FTMLDocument`
-
-- `load(data: str, schema: FTMLSchema = None) -> FTMLDocument` Parses an FTML data string and returns an `FTMLDocument` object. If a schema is provided, validates the data against it.
-
-- `from_dict(data: dict) -> FTMLDocument` Creates an `FTMLDocument` object from a Python dictionary.
-
-- `to_dict() -> dict` Converts the `FTMLDocument` object to a Python dictionary.
-
-- `to_ftml() -> str` Converts the `FTMLDocument` object to an FTML string.
-
+- **`FTMLData`**  
+  A dict subclass that wraps the simplified FTML data. It provides convenient access to:
+  - `ftml_document`: The full FTMLDocument instance (with complete metadata).
+  - `ftml_schema`: The full FTMLSchema instance (if a schema was provided).
 
 ### Key Classes
 
 - **`FTMLSchema`**
-    - Parses and caches an FTML schema.
-    - Validates data against the schema.
+  - Parses and caches an FTML schema.
+  - Validates data against the schema.
 
 - **`FTMLDocument`**
-    - Parses FTML documents.
-    - Optionally validates the document against a cached schema.
-    - Provides output in either data structure or metadata format.
+  - Parses FTML documents and optionally validates them against a cached schema.
+  - Provides methods to convert the document to a dict or an FTML string.
+
+- **`FTMLData`**
+  - Acts as the primary return type of `ftml.load`.
+  - Behaves like a standard dictionary for everyday usage (similar to JSON or YAML data).
+  - Exposes advanced metadata (via `ftml_document` and `ftml_schema`) for full round-trip serialization and advanced manipulations.
 
 ### Example Usage
 
 ```python
-from ftml import FTMLSchema, FTMLDocument
+import ftml
 
 # Schema definition
 schema_text = """
@@ -897,16 +949,15 @@ user = {
 }
 """
 
-# Load and cache the schema
-schema = FTMLSchema.load(schema_text)
+# Load the FTML data (returns an FTMLData instance)
+data = ftml.load(data_text, schema=schema_text)
 
-# Parse and validate the document in structure mode (default)
-data_structure = FTMLDocument.load(data_text, schema=schema, mode="structure")
-print("Data Structure:", data_structure)
+# The returned FTMLData acts like a normal dictionary:
+print("Simplified FTML Data:", data)
 
-# Parse and validate the document in metadata mode
-data_metadata = FTMLDocument.load(data_text, schema=schema, mode="metadata")
-print("Data Metadata:", data_metadata)
+# And advanced details are still accessible:
+print("Full FTMLDocument instance:", data.ftml_document)
+print("Full FTMLSchema instance:", data.ftml_schema)
 ```
 
 ### Contributing

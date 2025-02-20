@@ -1,18 +1,18 @@
 from ftml.document import FTMLDocument
+from ftml.ftml_data import FTMLData, simplify_data
 from ftml.schema import FTMLSchema
 
 
-def load(data: str, schema: str = None) -> dict:
-    """
-    Parse FTML data into a Python dictionary.
-    If a schema is provided, validate the data against it.
-    """
+def load(data: str, schema: str = None) -> FTMLData:
     if schema:
         schema_obj = FTMLSchema.load(schema)
         document = FTMLDocument.load(data, schema=schema_obj.schema_def)
+        simple_data = simplify_data(document.data)
+        return FTMLData(simple_data, document, schema_obj)
     else:
         document = FTMLDocument.load(data)
-    return document.to_dict()
+        simple_data = simplify_data(document.data)
+        return FTMLData(simple_data, document)
 
 
 def dump(data: dict, file=None) -> str:

@@ -34,3 +34,7 @@ class FTMLSchema:
             else:
                 normalized[key] = {'type': value}
         return normalized
+
+    def to_dict(self) -> Dict:
+        """Return a simplified dictionary view of the schema."""
+        return self.schema_def

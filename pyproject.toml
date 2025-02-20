@@ -1,17 +1,25 @@
 [tool.poetry]
 name = "ftml"
-version = "0.1.0"
-description = ""
+version = "0.1.0a0"
+description = "FTML (FlexTag Markup Language) - A data format that combines intuitive design with built-in schemas. Features robust schema validation, type safety, simple flat design, and smart defaults. Designed to provide structured data markup with powerful validation capabilities."
 authors = ["DarrenHaba <darrenhaba@live.com>"]
 readme = "README.md"
 packages = [{ include = "ftml", from = "src" }]
+license = "MIT"
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/DarrenHaba/ftml"
+"Repository" = "https://github.com/DarrenHaba/ftml"
+"Bug Tracker" = "https://github.com/DarrenHaba/ftml/issues"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.9"
 pytest = "^8.3.4"
 
+
+[tool.poetry.group.dev.dependencies]
+tox = "^4.24.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-

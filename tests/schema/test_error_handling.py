@@ -109,7 +109,4 @@ def test_expected_dict_error_message_detail():
     with pytest.raises(ValidationError) as exc_info:
         load(ftml_data, schema=schema)
     error_message = str(exc_info.value)
-    print(5555)
-    print(error_message)
-    print(555)
     assert "Expected dict for field 'profile'" in error_message

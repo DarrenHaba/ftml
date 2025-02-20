@@ -31,11 +31,11 @@ class FTMLValidator:
         elif isinstance(value, list) and 'type' in schema_def and schema_def['type'].startswith('list'):
             self._validate_list(value, schema_def)
         else:
-            self._check_type(value, schema_def.get('type'))
+            self._check_type(value, schema_def.get('type'), field_name=key)
 
     def _validate_dict(self, value: Dict, schema_def: Dict):
         if not isinstance(value, dict):
-            raise ValidationError(f"Expected dict, got {type(value).__name__}")
+            raise ValidationError(f"Expected dict, got {type(value).__name__} with value {value}")
         for field, field_schema in schema_def.get('fields', {}).items():
             if field in value:
                 self._validate_value(field, value[field], field_schema)
@@ -62,11 +62,11 @@ class FTMLValidator:
         if multiplicity:
             items = data.get(clean_key, [])
             if multiplicity == '+' and len(items) < 1:
-                raise ValidationError(f"Field {clean_key}+ requires at least one item")
+                raise ValidationError(f"Field '{clean_key}+' requires at least one item")
             if multiplicity == '?' and len(items) > 1:
-                raise ValidationError(f"Field {clean_key}? allows maximum one item")
+                raise ValidationError(f"Field '{clean_key}?' allows maximum one item")
             for item in items:
-                self._check_type(item, schema_def['type'])
+                self._check_type(item, schema_def['type'], field_name=clean_key)
         else:
             if clean_key in data:
                 value = data[clean_key]
@@ -78,16 +78,20 @@ class FTMLValidator:
                     return
                 else:
                     raise ValidationError(f"Missing required field: {clean_key}")
+            # Special case: if expected type is 'dict', enforce that value is a dict.
+            if schema_def['type'] == 'dict' and not isinstance(value, dict):
+                raise ValidationError(f"Expected dict for field '{clean_key}', got {type(value).__name__} with value {value}")
+            # If there are nested fields, validate the dict structure.
             if 'fields' in schema_def:
                 if not isinstance(value, dict):
-                    raise ValidationError(f"Expected dict for field {clean_key}, got {type(value).__name__}")
+                    raise ValidationError(f"Expected dict for field '{clean_key}', got {type(value).__name__} with value {value}")
                 self._validate_dict(value, schema_def)
             else:
-                self._check_type(value, schema_def['type'])
+                self._check_type(value, schema_def['type'], field_name=clean_key)
 
     def _validate_list(self, value: List, schema_def: Dict):
         if not isinstance(value, list):
-            raise ValidationError(f"Expected list, got {type(value).__name__}")
+            raise ValidationError(f"Expected list, got {type(value).__name__} with value {value}")
 
         # Validate each item in the list
         item_type = schema_def.get('item_type')
@@ -95,7 +99,7 @@ class FTMLValidator:
             for item in value:
                 self._check_type(item, item_type)
 
-    def _check_type(self, value: Any, expected_type: str):
+    def _check_type(self, value: Any, expected_type: str, field_name: str = None):
         if expected_type is None:
             return
 
@@ -109,18 +113,40 @@ class FTMLValidator:
             'null': type(None)
         }
 
+        # Special case: if expecting a dict but value is not a dict,
+        # raise an error with the desired message.
+        if expected_type == 'dict' and not isinstance(value, dict):
+            if field_name:
+                raise ValidationError(
+                    f"Expected dict for field '{field_name}', got {type(value).__name__} with value {value}"
+                )
+            else:
+                raise ValidationError(
+                    f"Expected dict, got {type(value).__name__} with value {value}"
+                )
+
         # Handle union types
         if '|' in expected_type:
             types = [t.strip() for t in expected_type.split('|')]
             if not any(self._is_valid_type(value, t, type_map) for t in types):
-                raise ValidationError(
-                    f"Type mismatch. Expected one of {types}, got {type(value).__name__}"
-                )
+                if field_name:
+                    raise ValidationError(
+                        f"Type mismatch for field '{field_name}'. Expected one of {types}, got {type(value).__name__} with value {value}"
+                    )
+                else:
+                    raise ValidationError(
+                        f"Type mismatch. Expected one of {types}, got {type(value).__name__} with value {value}"
+                    )
         else:
             if not self._is_valid_type(value, expected_type, type_map):
-                raise ValidationError(
-                    f"Type mismatch. Expected {expected_type}, got {type(value).__name__}"
-                )
+                if field_name:
+                    raise ValidationError(
+                        f"Type mismatch for field '{field_name}'. Expected {expected_type}, got {type(value).__name__} with value {value}"
+                    )
+                else:
+                    raise ValidationError(
+                        f"Type mismatch. Expected {expected_type}, got {type(value).__name__} with value {value}"
+                    )
 
     @staticmethod
     def _is_valid_type(value: Any, type_name: str, type_map: Dict) -> bool:
@@ -138,4 +164,3 @@ class FTMLValidator:
             'dict': dict,
             'null': type(None)
         }.get(type_name, object)
-

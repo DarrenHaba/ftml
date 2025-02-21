@@ -1,14 +1,56 @@
-from typing import Union, Dict, List, Any
+from enum import Enum, auto
+from typing import List, Dict, Any, Union, Optional
 
-from ftml.exceptions import FTMLParseError
-from ftml.tokenizer import Token, TokenType
+
+class TokenType(Enum):
+    LBRACE = auto()  # {
+    RBRACE = auto()  # }
+    LBRACKET = auto()  # [
+    RBRACKET = auto()  # ]
+    COLON = auto()  # :
+    EQUAL = auto()  # =
+    COMMA = auto()  # ,
+    PIPE = auto()  # |
+    QUESTION = auto()  # ?
+    IDENTIFIER = auto()  # could be unquoted keys or type names
+    STRING = auto()
+    FLOAT = auto()
+    INTEGER = auto()
+    BOOLEAN = auto()
+    NULL = auto()
+    WHITESPACE = auto()
+    NEWLINE = auto()
+    EOF = auto()
+
+
+class FTMLParseError(Exception):
+    pass
+
+
+class Token:
+    def __init__(self, type_: TokenType, value: Any, line: int = 1, col: int = 1):
+        self.type = type_
+        self.value = value
+        self.line = line
+        self.col = col
+
+    def __repr__(self):
+        return f"Token({self.type}, {self.value}, line={self.line}, col={self.col})"
 
 
 class FTMLParser:
+    """
+    A simplified parser for FTML data using explicit { } for dicts and [ ] for lists.
+    - Supports typed dict fields: key?: type|otherType = value
+    - Supports typed list items: :type|otherType value
+    - Union types with pipe (|), optional with '?'
+    - Commas between fields/items
+    """
+
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
         self.pos = 0
-        self.current_token = None
+        self.current_token: Optional[Token] = None
         self.advance()
 
     def advance(self):
@@ -16,145 +58,242 @@ class FTMLParser:
             self.current_token = self.tokens[self.pos]
             self.pos += 1
         else:
-            self.current_token = None
+            self.current_token = Token(TokenType.EOF, None, line=-1, col=-1)
 
-    def parse(self) -> Union[Dict, List]:
-        if self.current_token is None:
-            return {}
-
-        # Handle top-level list
-        if self.current_token.type == TokenType.LBRACKET:
+    def parse(self) -> Any:
+        """
+        Entry point. Expect a single top-level dict or list.
+        """
+        self.skip_whitespace()
+        if self.current_token.type == TokenType.LBRACE:
+            return self.parse_dict()
+        elif self.current_token.type == TokenType.LBRACKET:
             return self.parse_list()
+        else:
+            raise FTMLParseError(
+                f"Expected '{{' or '[' at start, got {self.current_token.type} at line {self.current_token.line}"
+            )
 
-        # Handle list of primitive values
-        if self.current_token.type in (TokenType.STRING, TokenType.INTEGER,
-                                       TokenType.FLOAT, TokenType.BOOLEAN, TokenType.NULL):
-            return self.parse_top_level_list()
+    def parse_dict(self) -> Dict[str, Any]:
+        """
+        Parse { key [?: type]? = value, ... }
+        or { key: type = value, anotherKey = value, ... }
+        """
+        self.consume(TokenType.LBRACE)
+        result: Dict[str, Any] = {}
+        self.skip_whitespace()
 
-        return self.parse_dict()
+        while True:
+            self.skip_whitespace()
+            if self.current_token.type == TokenType.RBRACE:
+                # End of dictionary
+                break
+            if self.current_token.type == TokenType.EOF:
+                raise FTMLParseError("Unclosed '{' in dictionary")
 
-    def parse_top_level_list(self) -> List:
-        items = []
-        while self.current_token:
-            items.append(self.parse_value())
-            if self.current_token and self.current_token.type == TokenType.COMMA:
-                self.advance()
-        return items
+            # Parse one "key" and optionally type or optional suffix
+            key, optional_flag = self.parse_dict_key()
 
-    def parse_dict(self) -> Dict:
-        result = {}
-        while self.current_token and self.current_token.type not in (TokenType.RBRACE, TokenType.RBRACKET):
-            key = self.parse_key()
+            self.skip_whitespace()
+            # Check if we have a typed field (key: type) or just '='
+            field_def = self.maybe_parse_typed_field()
 
-            # Check for duplicate keys
-            if key in result:
+            self.skip_whitespace()
+            if field_def is not None:
+                # typed => must see '=' if we want a value
+                type_str = field_def
+                is_optional = optional_flag
+
+                val = None
+                if self.current_token.type == TokenType.EQUAL:
+                    self.advance()  # consume '='
+                    self.skip_whitespace()
+                    val = self.parse_value()
+                # If there's no '=', we can do val=None or raise an error
+                if val is None:
+                    val = None
+
+                result[key] = {
+                    "type": type_str,
+                    "optional": is_optional,
+                    "value": val
+                }
+            else:
+                # untyped => must have '='
+                self.consume(TokenType.EQUAL)
+                self.skip_whitespace()
+                val = self.parse_value()
+                result[key] = val
+
+            self.skip_whitespace()
+            # Now expect either ',' or '}'
+            if self.current_token.type == TokenType.COMMA:
+                self.advance()  # consume comma
+                continue
+            elif self.current_token.type == TokenType.RBRACE:
+                break
+            else:
                 raise FTMLParseError(
-                    f"Duplicate key '{key}' at line {self.current_token.line}"
+                    f"Expected ',' or '}}' after dict field, got {self.current_token.type} at line {self.current_token.line}"
                 )
 
-            # Handle schema type annotations
-            if self.current_token and self.current_token.type == TokenType.COLON:
-                self.advance()  # Consume colon
-                type_def = self.parse_type_definition()
-
-                # Create schema definition
-                schema_def = {'type': type_def}
-
-                # Handle optional fields
-                if key.endswith('?'):
-                    schema_def['optional'] = True
-                    key = key.rstrip('?')
-
-                # Handle default values
-                if self.current_token and self.current_token.type == TokenType.EQUAL:
-                    self.advance()
-                    schema_def['default'] = self.parse_value()
-
-                result[key] = schema_def
-            else:
-                self.consume(TokenType.EQUAL)
-                value = self.parse_value()
-                result[key] = value
-
-            if self.current_token and self.current_token.type == TokenType.COMMA:
-                self.advance()
-
+        self.consume(TokenType.RBRACE)
         return result
 
-    def parse_list(self) -> List:
-        self.consume(TokenType.LBRACKET)
-        items = []
-        while self.current_token and self.current_token.type != TokenType.RBRACKET:
-            items.append(self.parse_value())
-            if self.current_token and self.current_token.type == TokenType.COMMA:
+    def parse_dict_key(self):
+        """
+        Return (key, optional_flag).
+        key might be an IDENTIFIER or STRING
+        optional_flag is True if key ended with '?'
+        """
+        tk = self.current_token
+        if tk.type not in (TokenType.IDENTIFIER, TokenType.STRING):
+            raise FTMLParseError(
+                f"Expected dict key (IDENTIFIER/STRING), got {tk.type} at line {tk.line}"
+            )
+        raw_key = tk.value
+        self.advance()
+
+        optional_flag = False
+        # If the next token is '?', that means optional. But you said you want "key?" as a single token sometimes.
+        # If your tokenizer merges 'key?' into one token, you'd parse it differently. Let's assume we do that below:
+        # If you want a separate token for '?', do something else:
+        # For simplicity, let's see if raw_key ends with '?':
+        if isinstance(raw_key, str) and raw_key.endswith('?'):
+            optional_flag = True
+            raw_key = raw_key[:-1]
+
+        return raw_key, optional_flag
+
+    def maybe_parse_typed_field(self) -> Optional[str]:
+        """
+        If the current token is ':', parse a type definition
+        which can include union pipes (|).
+        Return the full type string (e.g. 'str | null'),
+        or None if there's no typed field.
+        """
+        self.skip_whitespace()
+        if self.current_token.type == TokenType.COLON:
+            self.advance()  # consume ':'
+            self.skip_whitespace()
+            # parse the type, including union pipes or brackets/braces if you want nested.
+            type_str = self.parse_type_definition()
+            return type_str
+        return None
+
+    def parse_list(self) -> List[Any]:
+        """
+        Parse [ item, item, ... ].
+        Each item can be:
+          - typed list item: :SomeType literalOrStructure
+          - untyped literalOrStructure (string, number, {dict}, [list], etc.)
+        """
+        self.consume(TokenType.LBRACKET)  # consume '['
+        items: List[Any] = []
+        self.skip_whitespace()
+
+        # We'll loop until we see a ']' or run out of tokens
+        while True:
+            self.skip_whitespace()
+            if self.current_token.type == TokenType.RBRACKET:
+                # End of the list
+                break
+            if self.current_token.type == TokenType.EOF:
+                raise FTMLParseError("Unclosed '[' in list")
+
+            # -- Parse exactly one item here --
+            if self.current_token.type == TokenType.COLON:
+                # typed item
+                self.advance()  # consume ':'
+                self.skip_whitespace()
+                tdef = self.parse_type_definition()  # e.g. "str" or "float | null"
+                self.skip_whitespace()
+                val = self.parse_value()  # parse the actual value
+                items.append({"type": tdef, "value": val})
+            else:
+                # untyped item
+                val = self.parse_value()
+                items.append(val)
+
+            # After parsing one item, expect either ',' or ']'
+            self.skip_whitespace()
+            if self.current_token.type == TokenType.COMMA:
+                # consume comma, then loop for next item
                 self.advance()
+                continue
+            elif self.current_token.type == TokenType.RBRACKET:
+                # end of list
+                break
+            else:
+                # unexpected token
+                raise FTMLParseError(
+                    f"Expected comma or ']' after list item, got {self.current_token.type} at line {self.current_token.line}"
+                )
+
+        # Now consume the closing bracket
         self.consume(TokenType.RBRACKET)
         return items
 
     def parse_value(self) -> Any:
-        token = self.current_token
-        if token.type == TokenType.LBRACE:
-            self.advance()
-            value = self.parse_dict()
-            self.consume(TokenType.RBRACE)
-            return value
-        elif token.type == TokenType.LBRACKET:
+        """
+        Parse a single value: literal, dict, or list.
+        Typed items in a list are handled by parse_list.
+        """
+        self.skip_whitespace()
+        tk = self.current_token
+
+        if tk.type == TokenType.LBRACE:
+            return self.parse_dict()
+        elif tk.type == TokenType.LBRACKET:
             return self.parse_list()
+        elif tk.type in (TokenType.STRING, TokenType.IDENTIFIER,
+                         TokenType.FLOAT, TokenType.INTEGER,
+                         TokenType.BOOLEAN, TokenType.NULL):
+            val = tk.value
+            self.advance()
+            return val
         else:
-            self.advance()
-            return token.value
+            raise FTMLParseError(
+                f"Unexpected token {tk.type} at line {tk.line}, can't parse as value"
+            )
 
-    def parse_key(self) -> str:
-        if self.current_token.type in (TokenType.STRING, TokenType.IDENTIFIER):
-            key = self.current_token.value
-            self.advance()
-
-            # Check for multiplicity symbols
-            if self.current_token and self.current_token.type in (TokenType.QUESTION,
-                                                                  TokenType.STAR,
-                                                                  TokenType.PLUS):
-                key += self.current_token.type.value
+    def parse_type_definition(self) -> str:
+        """
+        Parse a type expression like:
+           "str", "float", "dict{...}", "str | null" etc.
+        For simplicity, we'll just parse tokens until we hit
+        ',', '=', ']', '}', or the next high-level boundary.
+        If we see '|', we'll add spaces around it => " | ".
+        """
+        parts = []
+        while True:
+            self.skip_whitespace()
+            tk = self.current_token
+            if tk.type in (TokenType.COMMA, TokenType.EQUAL,
+                           TokenType.RBRACKET, TokenType.RBRACE,
+                           TokenType.EOF):
+                break
+            elif tk.type == TokenType.PIPE:
+                parts.append(" | ")
                 self.advance()
+            elif tk.type == TokenType.IDENTIFIER:
+                parts.append(str(tk.value))
+                self.advance()
+            else:
+                # If we encounter a token that isn’t allowed in a type expression,
+                # break and let the next parser function handle it.
+                break
+        return "".join(parts)
 
-            return key
-        raise FTMLParseError(f"Invalid key type: {self.current_token.type}")
-
-    def consume(self, expected_type: TokenType):
-        if self.current_token and self.current_token.type == expected_type:
+    def skip_whitespace(self):
+        while self.current_token.type in (TokenType.WHITESPACE, TokenType.NEWLINE):
             self.advance()
-        else:
-            raise FTMLParseError(f"Expected {expected_type}, got {self.current_token.type if self.current_token else 'EOF'}")
 
-    def parse_typed_key(self):
-        key_token = self.current_token
-        self.advance()  # Move past identifier/string
-        self.consume(TokenType.COLON)
-        type_tokens = []
-        while self.current_token and self.current_token.type not in (TokenType.COMMA, TokenType.EQUAL, TokenType.RBRACE):
-            type_tokens.append(str(self.current_token.value))
-            self.advance()
-        return key_token.value, ' '.join(type_tokens)
-
-    def parse_type(self):
-        type_tokens = []
-        while self.current_token and self.current_token.type not in (TokenType.EQUAL, TokenType.COMMA, TokenType.PIPE):
-            type_tokens.append(self.current_token.value)
-            self.advance()
-        return ' '.join(type_tokens)
-
-    def parse_type_definition(self):
-        type_parts = []
-        while self.current_token and self.current_token.type not in (TokenType.COMMA,
-                                                                     TokenType.EQUAL,
-                                                                     TokenType.RBRACE):
-            if self.current_token.value is not None:
-                type_parts.append(str(self.current_token.value))
-            self.advance()
-        return ' '.join(type_parts) if type_parts else None
-
-    def handle_type_annotation(self, key: str, value_type: str):
-        # Store type information for schema validation
-        pass
-
-    def peek_next(self):
-        return self.tokens[self.pos] if self.pos < len(self.tokens) else None
+    def consume(self, expected: TokenType):
+        """Consume one token of expected type, or raise an error."""
+        self.skip_whitespace()
+        if self.current_token.type != expected:
+            raise FTMLParseError(
+                f"Expected {expected}, got {self.current_token.type} at line {self.current_token.line}"
+            )
+        self.advance()

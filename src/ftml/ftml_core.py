@@ -260,13 +260,41 @@ class FTMLParser:
         return t
 
     def parse_document(self) -> DocumentNode:
+        """
+        Parses the entire document. This is our entry point.
+        We first skip any leading newlines/whitespace/comments,
+        then parse exactly one value (object, list, scalar),
+        then skip trailing non-semantic tokens until EOF.
+        """
         doc = DocumentNode()
-        # parse data (could be object, list, or scalar)
+
+        # 1) Skip leading nonsemantic tokens (newlines, whitespace, comment lines, etc.)
+        self._skip_nonsemantic()
+
+        # 2) If there's nothing else (EOF), doc.data stays None (empty).
+        if self.peek().type == TokenType.EOF:
+            return doc
+
+        # 3) Parse the top-level value (could be an object, list, or scalar).
         doc.data = self.parse_value()
+
+        # 4) Optionally skip trailing newlines or comments if the user typed them after data.
+        self._skip_nonsemantic()
+
         return doc
 
     def parse_value(self) -> Node:
+        """
+        Parses a "value", which may be:
+          - object: { ... }
+          - list:   [ ... ]
+          - scalar:  string, int, float, bool, null
+        We also skip any leftover newlines/comments before we decide which parse_* to call.
+        """
+        # Make sure we skip any newlines/comments before we check the next token:
+        self._skip_nonsemantic()
         tk = self.peek()
+
         if tk.type == TokenType.LBRACE:
             return self.parse_object()
         elif tk.type == TokenType.LBRACKET:
@@ -277,7 +305,7 @@ class FTMLParser:
         ):
             return self.parse_scalar()
         else:
-            # Could be empty or unknown
+            # Could be empty or unknown token
             raise ParserError(f"Unexpected token {tk} in parse_value()")
 
     def parse_object(self) -> ObjectNode:

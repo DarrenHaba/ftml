@@ -1,7 +1,6 @@
 #   FTML: FlexTag Markup Language
 
->   **Alpha Status**: Under active development — [Report Issues](#) | [Feedback](#)
-
+>   **Alpha Status**: Under active development - [Report Issues](https://github.com/DarrenHaba/ftml/issues) | [Send Feedback](https://github.com/DarrenHaba/ftml/issues). 
 ---
 
 ##   Data Integrity Meets Simplicity

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "ftml"
-version = "0.1.0a0"
-description = "FTML (FlexTag Markup Language) - A data format that combines intuitive design with built-in schemas. Features robust schema validation, type safety, simple flat design, and smart defaults. Designed to provide structured data markup with powerful validation capabilities."
+version = "0.1.0a1"  # Update to match PACKAGE_VERSION in __init__.py 
+description = "FTML (FlexTag Markup Language) - A data format that combines intuitive design with built-in schemas. Features robust schema validation, type safety, and smart defaults. Designed to provide structured data markup with powerful validation capabilities."
 authors = ["DarrenHaba <darrenhaba@live.com>"]
 readme = "README.md"
 packages = [{ include = "ftml", from = "src" }]
@@ -19,7 +19,12 @@ pytest = "^8.3.4"
 
 [tool.poetry.group.dev.dependencies]
 tox = "^4.24.1"
+black = "^25.1.0"
+flake8 = "^7.2.0"
 
 [build-system]
 requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+build-backend = "poedtry.core.masonry.api"
+
+[tool.black]
+line-length = 120

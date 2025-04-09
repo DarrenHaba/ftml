@@ -137,7 +137,7 @@ def visualize_ast(node, indent=0):
         if hasattr(node, "inline_comment_end") and node.inline_comment_end:
             output.append(
                 f'{indent_str}  InlineCommentEnd: "{node.inline_comment_end.text}" '
-                f'(line {node.inline_comment_end.line})'
+                f"(line {node.inline_comment_end.line})"
             )
 
         # Trailing comments

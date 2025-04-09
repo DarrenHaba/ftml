@@ -5,14 +5,16 @@
 
 ##   Data Integrity Meets Simplicity
 
-FTML combines human-readable syntax with robust validation, ensuring structured data for AI, databases, and humans.
+FTML: Human-readable syntax, bulletproof validation. Built for humans, and preferred by our AI overlords 😉.
 
-**Why developers love it**:
+**Why developers love FTML**
 
-* **Similar syntax for data *and* schemas** - Learn once, use everywhere.
-* **Validation on load *and* save** - Catch errors early, every time.
-* **Comments preserved** - Your docs stay intact, even after edits.
-* **Python-native** - Works seamlessly with dictionaries.
+* **Unified data/schema syntax** - Validate data at a glance with familiar patterns.
+* **Rich Constraints** - Set clear boundaries in the wild wild west of generative data.
+* **Round-Trip Validation** - Continuous data integrity, catch errors at every step.
+* **Python-friendly** - Seamless integration with Python dictionaries.
+* **Round-Trip Comments** - Your documentation stays intact, even after edits.
+* **Flexible Type Safety** - Data where everyone knows what to expect.
 
 ---
 
@@ -218,7 +220,6 @@ server = {
 import ftml
 
 ftml_schema = """
-@schema
 user: {
     name: str<min=1>,
     role: str = "user"
@@ -257,4 +258,18 @@ FTML offers several advanced features to help you build robust data applications
 * **Union Types** - Create flexible schemas with multiple allowed types using `type1 | type2`
 * **Strict Mode** - Choose between strict validation and more permissive options
 
-For more detailed documentation, check out the [docs folder](https://github.com/DarrenHaba/ftml/tree/main/docs). Note that while comprehensive, the documentation is still being refined as the project evolves.
+For more documentation (dive into the rabbit hole 🕳️) see:
+
+* [Document Structure](https://github.com/DarrenHaba/ftml/blob/main/docs/structure.md) - Root structure and document format
+* [Unions and Enums](https://github.com/DarrenHaba/ftml/blob/main/docs/unions_enums.md) - Working with unions and enums in FTML
+* [Versioning & Encoding](https://github.com/DarrenHaba/ftml/blob/main/docs/versioning_encoding.md) - FTML versions and character encodings
+* [Date & Time Types](https://github.com/DarrenHaba/ftml/blob/main/docs/datetime.md) - Working with temporal data
+* [Constraints](https://github.com/DarrenHaba/ftml/blob/main/docs/constraints.md) - Validation rules for data
+* [Scalar Types](https://github.com/DarrenHaba/ftml/blob/main/docs/scalars.md) - String, number, boolean, and null types
+* [Collections](https://github.com/DarrenHaba/ftml/blob/main/docs/collections.md) - Working with objects and lists in FTML
+* [Comments](https://github.com/DarrenHaba/ftml/blob/main/docs/comments.md) - Comment syntax and preservation
+* [Parsing & Serialization](https://github.com/DarrenHaba/ftml/blob/main/docs/parser.md) - How FTML processing works
+* [Schema Parser](https://github.com/DarrenHaba/ftml/blob/main/docs/schema_parser.md) - Internal workings of the schema parser
+* [API Reference](https://github.com/DarrenHaba/ftml/blob/main/docs/api.md) - Core functions and classes for loading, modifying, and saving FTML data
+
+Note: Documentation is being actively developed as the project evolves.

@@ -258,7 +258,7 @@ FTML offers several advanced features to help you build robust data applications
 * **Union Types** - Create flexible schemas with multiple allowed types using `type1 | type2`
 * **Strict Mode** - Choose between strict validation and more permissive options
 
-For more documentation (dive into the rabbit hole 🕳️) see:
+For more documentation, dive into the rabbit hole 🕳️:
 
 * [Document Structure](https://github.com/DarrenHaba/ftml/blob/main/docs/structure.md) - Root structure and document format
 * [Unions and Enums](https://github.com/DarrenHaba/ftml/blob/main/docs/unions_enums.md) - Working with unions and enums in FTML

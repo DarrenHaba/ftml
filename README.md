@@ -12,7 +12,7 @@ FTML: Human-readable syntax, bulletproof validation. Built for humans, and prefe
 * **Unified data/schema syntax** - Validate data at a glance with familiar patterns.
 * **Rich Constraints** - Set clear boundaries in the wild wild west of generative data.
 * **Round-Trip Validation** - Continuous data integrity, catch errors at every step.
-* **Python-friendly** - Seamless integration with Python dictionaries.
+* **Python-friendly** - Familiar syntax, works seamlessly with dictionaries.
 * **Round-Trip Comments** - Your documentation stays intact, even after edits.
 * **Flexible Type Safety** - Data where everyone knows what to expect.
 

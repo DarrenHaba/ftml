@@ -7,7 +7,7 @@
 
 FTML: Human-readable syntax, bulletproof validation. Built for humans, and preferred by our AI overlords 😉.
 
-**Why developers love FTML**
+**Why developers love it:**
 
 * **Unified data/schema syntax** - Validate data at a glance with familiar patterns.
 * **Rich Constraints** - Set clear boundaries in the wild wild west of generative data.
